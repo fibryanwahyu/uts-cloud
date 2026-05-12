@@ -9,7 +9,7 @@ const upload = multer({ dest: 'uploads/' });
 // ================= CONFIG =================
 const endpoint = 'http://127.0.0.1:4566';
 
-// 🔥 S3 (AMAN - TANPA CREDENTIAL)
+// S3
 const s3 = new AWS.S3({
   endpoint: endpoint,
   s3ForcePathStyle: true,
@@ -59,12 +59,14 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const fileContent = fs.readFileSync(req.file.path);
 
+    // Upload ke S3
     await s3.putObject({
       Bucket: BUCKET,
       Key: req.file.originalname,
       Body: fileContent,
     }).promise();
 
+    // Simpan metadata ke DynamoDB
     await docClient.put({
       TableName: TABLE,
       Item: {
@@ -82,13 +84,37 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ================= LIST =================
+// ================= LIST FILE =================
 app.get('/files', async (req, res) => {
   try {
     const data = await docClient.scan({ TableName: TABLE }).promise();
     res.json(data.Items);
   } catch (err) {
     res.send(err.message);
+  }
+});
+
+// ================= DELETE FILE =================
+app.get('/delete/:filename', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    // hapus dari S3
+    await s3.deleteObject({
+      Bucket: BUCKET,
+      Key: filename,
+    }).promise();
+
+    // hapus dari DynamoDB
+    await docClient.delete({
+      TableName: TABLE,
+      Key: { filename: filename },
+    }).promise();
+
+    res.send('🗑️ File berhasil dihapus');
+  } catch (err) {
+    console.error(err);
+    res.send('❌ Gagal hapus: ' + err.message);
   }
 });
 

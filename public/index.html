@@ -25,9 +25,21 @@
 
       files.forEach(f => {
         const li = document.createElement('li');
-        li.innerText = f.filename + " (" + f.uploadedAt + ")";
+
+        li.innerHTML = `
+          ${f.filename} (${f.uploadedAt})
+          <button onclick="deleteFile('${f.filename}')">Hapus</button>
+        `;
+
         list.appendChild(li);
       });
+    }
+
+    async function deleteFile(filename) {
+      if (confirm("Yakin ingin menghapus file ini?")) {
+        await fetch('/delete/' + filename);
+        loadFiles();
+      }
     }
   </script>
 </body>
